@@ -32,7 +32,11 @@ struct NowView: View {
             VStack(alignment: .leading, spacing: 18) {
                 if isStuck { stuckBanner }
 
-                SessionStrip()
+                HStack {
+                    SessionStrip()
+                    Spacer()
+                    BatteryPill(battery: client.battery)
+                }
 
                 verdictCard
 
@@ -187,32 +191,126 @@ struct NowView: View {
     }
 }
 
-/// Compact per-band readout with one-line interpretations. Shows the user
-/// what each frequency band is *for* while they look at the numbers — no
-/// Wikipedia trip required.
+/// Per-band relative power. Each band is shown as % of total spectral power
+/// (sums to ~100), so the user has a real 0–100 range to interpret without
+/// per-user calibration. Reference bands ("typical awake adult") are marked
+/// with a faint gray tick so users know where their reading sits.
 struct BandPreviewRow: View {
     let frame: FocusFrame?
-    private let bands: [(String, KeyPath<FocusFrame, Double>, String)] = [
-        ("δ delta", \.delta, "deep sleep / drowsy lapses"),
-        ("θ theta", \.theta, "drifting / flow / drowsy"),
-        ("α alpha", \.alpha, "relaxed wakeful"),
-        ("β beta",  \.beta,  "alert / engaged"),
-        ("γ gamma", \.gamma, "binding / 'aha' (noisy)"),
+
+    /// Symbol, reference low/high (% of total power, awake adult eyes-open),
+    /// keypath into FocusFrame for the relative value, and a one-line hint.
+    private let bands: [(String, ClosedRange<Double>, KeyPath<FocusFrame, Double?>, String, Color)] = [
+        ("δ delta", 15...35, \.deltaRel, "deep sleep / drowsy lapses",  .purple),
+        ("θ theta", 10...25, \.thetaRel, "drifting / flow / drowsy",    .indigo),
+        ("α alpha", 15...35, \.alphaRel, "relaxed wakeful",              Color(red: 0.55, green: 0.75, blue: 0.95)),
+        ("β beta",  10...30, \.betaRel,  "alert / engaged",              .green),
+        ("γ gamma",  5...20, \.gammaRel, "binding / 'aha' (noisy)",      .orange),
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Band power").font(.subheadline).foregroundStyle(.secondary)
-            ForEach(bands, id: \.0) { name, kp, hint in
-                HStack {
-                    Text(name).font(.callout.monospaced()).frame(width: 70, alignment: .leading)
-                    Text(frame.map { String(format: "%.2f", $0[keyPath: kp]) } ?? "—")
-                        .font(.callout.monospaced())
-                        .frame(width: 60, alignment: .trailing)
-                    Text(hint).font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Band power")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Spacer()
+                Text("% of total · gray ticks = typical range")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            ForEach(bands, id: \.0) { sym, ref, kp, hint, color in
+                BandBar(
+                    label: sym, hint: hint, color: color, refRange: ref,
+                    relativePct: frame.flatMap { $0[keyPath: kp] }.map { $0 * 100 }
+                )
             }
         }
+    }
+}
+
+private struct BandBar: View {
+    let label: String
+    let hint: String
+    let color: Color
+    let refRange: ClosedRange<Double>     // expressed in percent (0-100)
+    let relativePct: Double?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                Text(label)
+                    .font(.callout.monospaced())
+                    .frame(width: 70, alignment: .leading)
+                    .foregroundStyle(color)
+                Text(hint).font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Text(relativePct.map { String(format: "%.0f%%", $0) } ?? "—")
+                    .font(.callout.monospaced())
+                    .foregroundStyle(.primary)
+                    .frame(width: 50, alignment: .trailing)
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(.quaternary)
+                    // Reference range — faint shaded band.
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(.tertiary)
+                        .frame(
+                            width: geo.size.width * (refRange.upperBound - refRange.lowerBound) / 100,
+                            height: 6
+                        )
+                        .offset(x: geo.size.width * refRange.lowerBound / 100)
+                    // Actual reading.
+                    if let pct = relativePct {
+                        let clamped = max(0, min(100, pct))
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(color)
+                            .frame(width: geo.size.width * clamped / 100, height: 8)
+                    }
+                }
+            }
+            .frame(height: 8)
+        }
+    }
+}
+
+/// Battery pill — colored dot + percentage. Shows "—" when source is
+/// synthetic or telemetry hasn't arrived yet (Muse pushes every ~5 s).
+struct BatteryPill: View {
+    let battery: BatteryStatus?
+
+    private var pct: Double? { battery?.batteryPct }
+    private var stale: Bool { battery?.stale ?? true }
+
+    private var icon: String {
+        guard let p = pct else { return "battery.0" }
+        switch p {
+        case ..<10:  return "battery.0"
+        case ..<35:  return "battery.25"
+        case ..<65:  return "battery.50"
+        case ..<90:  return "battery.75"
+        default:     return "battery.100"
+        }
+    }
+
+    private var tint: Color {
+        guard let p = pct, !stale else { return .secondary }
+        if p < 15 { return .red }
+        if p < 30 { return .orange }
+        return .green
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).foregroundStyle(tint)
+            Text(pct.map { String(format: "%.0f%%", $0) } ?? "—")
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(stale ? .secondary : .primary)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(.thinMaterial, in: Capsule())
+        .help(stale
+              ? "Headband battery: no recent telemetry."
+              : "Muse headband battery.")
     }
 }

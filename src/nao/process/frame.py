@@ -53,3 +53,13 @@ class FocusFrame(BaseModel):
     gyro_max: float | None = Field(
         default=None, description="Max abs angular velocity (deg/s) in window — head-turn intensity.",
     )
+
+    # Relative band power — each band as a fraction of total spectral power.
+    # Sums to ~1.0. Bounded 0-1 so the UI can render a meaningful bar without
+    # needing per-user calibration. Absolute powers above are kept for raw
+    # diagnostics + downstream features that need µV² units.
+    delta_rel: float | None = None
+    theta_rel: float | None = None
+    alpha_rel: float | None = None
+    beta_rel: float | None = None
+    gamma_rel: float | None = None

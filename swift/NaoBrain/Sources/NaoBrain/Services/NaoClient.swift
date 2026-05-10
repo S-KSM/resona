@@ -27,6 +27,7 @@ final class NaoClient: ObservableObject {
     @Published var activeSession: Session?
     @Published var sessions: [Session] = []
     @Published var verdict: Verdict?
+    @Published var battery: BatteryStatus?
 
     // MARK: Internals
 
@@ -124,6 +125,12 @@ final class NaoClient: ObservableObject {
     func loadVerdict() async {
         if let v: Verdict = try? await get("/verdict") {
             self.verdict = v
+        }
+    }
+
+    func loadBattery() async {
+        if let b: BatteryStatus = try? await get("/battery") {
+            self.battery = b
         }
     }
 
@@ -546,6 +553,11 @@ final class NaoClient: ObservableObject {
                 if self.activeSession != nil {
                     await loadActiveSession()
                 }
+            }
+            // Battery telemetry comes in every ~5 s on the headband; polling
+            // every 5 s here is plenty.
+            if tick % 5 == 0 {
+                await loadBattery()
             }
             if let p = self.calibrationProgress, p.isRunning {
                 await pollCalibrationProgress()

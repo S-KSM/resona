@@ -182,16 +182,35 @@ class Pipeline:
         alpha_mean = float(np.mean(powers["alpha"]))
         beta_mean = float(np.mean(powers["beta"]))
         gamma_mean = float(np.mean(powers["gamma"]))
+        delta_mean = float(np.mean(powers["delta"]))
+        theta_mean = float(np.mean(powers["theta"]))
         asymmetry = frontal_asymmetry(alpha_pc)
         arousal = arousal_index(alpha_mean, beta_mean, gamma_mean)
+
+        # Relative power: each band as a fraction of total. Bounded 0-1 so
+        # the UI can show a meaningful bar without per-user calibration.
+        total = delta_mean + theta_mean + alpha_mean + beta_mean + gamma_mean
+        if total > 1e-9:
+            delta_rel = delta_mean / total
+            theta_rel = theta_mean / total
+            alpha_rel = alpha_mean / total
+            beta_rel = beta_mean / total
+            gamma_rel = gamma_mean / total
+        else:
+            delta_rel = theta_rel = alpha_rel = beta_rel = gamma_rel = None
 
         frame = FocusFrame(
             ts=arrival_ts,
             alpha=alpha_mean,
             beta=beta_mean,
-            theta=float(np.mean(powers["theta"])),
-            delta=float(np.mean(powers["delta"])),
+            theta=theta_mean,
+            delta=delta_mean,
             gamma=gamma_mean,
+            delta_rel=delta_rel,
+            theta_rel=theta_rel,
+            alpha_rel=alpha_rel,
+            beta_rel=beta_rel,
+            gamma_rel=gamma_rel,
             focus=f_raw,
             focus_ema=f_ema,
             artifact=[a.name for a in Artifact if a in flags and a is not Artifact.NONE],

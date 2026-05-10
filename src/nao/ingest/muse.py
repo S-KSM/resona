@@ -53,6 +53,8 @@ class MuseStream:
     _last_ppg: np.ndarray = field(
         default_factory=lambda: np.zeros(len(PPG_CHANNELS)), init=False
     )
+    _last_battery_pct: float | None = field(default=None, init=False)
+    _last_battery_ts: float | None = field(default=None, init=False)
 
     def start(self) -> None:
         if self._running:
@@ -203,10 +205,12 @@ class MuseStream:
 
         from pylsl import StreamInlet, resolve_byprop  # type: ignore
 
-        cmd = [sys.executable, "-m", "muselsl", "stream", "-p", "-c", "-g"]
+        # Use our custom runner instead of `muselsl stream`. Same 4 standard
+        # outlets plus a Battery outlet that muselsl doesn't expose.
+        cmd = [sys.executable, "-m", "nao.scripts.muse_runner"]
         if self.address:
             cmd += ["-a", self.address]
-        log.info("Spawning muselsl: %s", " ".join(cmd))
+        log.info("Spawning muse runner: %s", " ".join(cmd))
         self._muselsl_proc = subprocess.Popen(
             cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
@@ -223,6 +227,7 @@ class MuseStream:
         self._spawn_aux_inlet("ACC", self._on_accel_chunk)
         self._spawn_aux_inlet("GYRO", self._on_gyro_chunk)
         self._spawn_aux_inlet("PPG", self._on_ppg_chunk)
+        self._spawn_aux_inlet("Battery", self._on_battery_chunk)
 
         last_chunk_ts = time.monotonic()
         try:
@@ -286,3 +291,25 @@ class MuseStream:
         out = np.zeros(len(PPG_CHANNELS))
         out[:n_have] = last[:n_have]
         self._last_ppg = out
+
+    def _on_battery_chunk(self, chunk: np.ndarray) -> None:
+        """Telemetry outlet: [battery_pct, fuel_gauge, adc_volt, temperature].
+
+        Muse pushes telemetry every few seconds — we just keep the latest
+        value and timestamp so the API can report charge level on demand.
+        """
+        last = chunk[-1]
+        if last.size >= 1:
+            self._last_battery_pct = float(last[0])
+            self._last_battery_ts = time.time()
+
+    @property
+    def battery_pct(self) -> float | None:
+        """Latest reported battery percentage (0–100), or None if not yet seen."""
+        return self._last_battery_pct
+
+    @property
+    def battery_age_s(self) -> float | None:
+        if self._last_battery_ts is None:
+            return None
+        return time.time() - self._last_battery_ts

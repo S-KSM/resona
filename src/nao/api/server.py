@@ -154,6 +154,22 @@ def signal_quality() -> dict[str, Any]:
     return current_state_block(history_seconds=2.0)
 
 
+@app.get("/battery")
+def battery() -> dict[str, Any]:
+    """Muse battery percentage. Returns null when source is synthetic, when
+    the headband hasn't pushed telemetry yet, or when the runner hasn't
+    enabled the Battery outlet."""
+    src = getattr(runtime.get_pipeline(), "source", None)
+    pct = getattr(src, "battery_pct", None)
+    age = getattr(src, "battery_age_s", None)
+    return {
+        "battery_pct": pct,
+        "age_s": age,
+        # Stale if telemetry older than 60 s — Muse pushes every ~5 s when alive.
+        "stale": age is None or age > 60.0,
+    }
+
+
 @app.get("/verdict")
 def verdict_now() -> dict[str, Any]:
     """One-sentence natural-language read of the current FocusFrame.

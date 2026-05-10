@@ -5,7 +5,7 @@ struct NaoBrainApp: App {
     @StateObject private var client = NaoClient()
 
     var body: some Scene {
-        WindowGroup("NAO Brain") {
+        WindowGroup("Resona") {
             RootView()
                 .environmentObject(client)
                 .frame(minWidth: 900, minHeight: 600)

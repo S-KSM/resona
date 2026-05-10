@@ -21,7 +21,7 @@ struct SessionsView: View {
                 ContentUnavailableView(
                     "Pick a session",
                     systemImage: "waveform.path.ecg",
-                    description: Text("Past recordings live in ~/.nao/sessions. Start a new one from the Live tab.")
+                    description: Text("Past recordings live in ~/.nao/sessions. Start a new one from the Now tab.")
                 )
             }
         }

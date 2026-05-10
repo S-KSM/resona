@@ -42,7 +42,7 @@ struct MenuBarMenu: View {
             Divider()
         }
 
-        Button("Open NAO Brain") { openWindow(id: "main") }
+        Button("Open Resona") { openWindow(id: "main") }
             .keyboardShortcut("n", modifiers: [.command, .shift])
 
         Button("Restart pipeline") {
