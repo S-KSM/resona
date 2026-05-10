@@ -68,13 +68,13 @@ private struct SessionRow: View {
             }
             HStack(spacing: 8) {
                 if let f = session.summary.focusMean {
-                    Tag(text: String(format: "F %.2f", f), tint: .blue)
+                    Tag(text: String(format: "F %.2f", f), tint: Resona.Palette.sky)
                 }
                 if let a = session.summary.asymmetryMean {
-                    Tag(text: String(format: "asym %+.2f", a), tint: .purple)
+                    Tag(text: String(format: "asym %+.2f", a), tint: Resona.Palette.lavender)
                 }
                 if session.summary.artifactRate > 0.2 {
-                    Tag(text: "noisy", tint: .orange)
+                    Tag(text: "noisy", tint: Resona.Palette.coral)
                 }
             }
             .font(.caption)
@@ -164,10 +164,11 @@ struct SessionDetailView: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.label)
-                    .font(.title2.weight(.semibold))
+                    .font(Resona.Typography.title)
+                    .foregroundStyle(Resona.Palette.ink)
                 Text(headerSubtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(Resona.Typography.caption)
+                    .foregroundStyle(Resona.Palette.inkSoft)
             }
             Spacer()
         }
@@ -201,7 +202,7 @@ struct SessionDetailView: View {
             MetricCard(
                 title: "artifact rate",
                 value: String(format: "%.0f%%", session.summary.artifactRate * 100),
-                tint: session.summary.artifactRate > 0.2 ? .orange : .secondary
+                tint: session.summary.artifactRate > 0.2 ? Resona.Palette.coral : Resona.Palette.mint
             )
         }
     }
@@ -209,7 +210,8 @@ struct SessionDetailView: View {
     private var focusChart: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Focus over session")
-                .font(.headline)
+                .font(Resona.Typography.headline)
+                .foregroundStyle(Resona.Palette.ink)
             Chart {
                 ForEach(frames) { f in
                     LineMark(
@@ -217,34 +219,37 @@ struct SessionDetailView: View {
                         y: .value("focus", f.focusEma)
                     )
                     .interpolationMethod(.monotone)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Resona.Palette.lavender)
                 }
                 if let drop = insights?.biggestDrop {
                     PointMark(
                         x: .value("min", drop.tMinute),
                         y: .value("focus", drop.focusMean)
                     )
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Resona.Palette.coral)
                     .symbolSize(80)
                     .annotation(position: .top) {
                         Text("low")
                             .font(.caption2)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Resona.Palette.coral)
                     }
                 }
             }
             .chartXAxisLabel("minutes")
             .frame(height: 200)
         }
+        .resonaCard(tint: Color.white.opacity(0.6))
     }
 
     private var asymmetryChart: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Frontal alpha asymmetry")
-                    .font(.headline)
+                    .font(Resona.Typography.headline)
+                    .foregroundStyle(Resona.Palette.ink)
                 Text("(left = withdrawal, right = approach)")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(Resona.Typography.caption)
+                    .foregroundStyle(Resona.Palette.inkFaint)
             }
             Chart {
                 ForEach(frames) { f in
@@ -253,22 +258,24 @@ struct SessionDetailView: View {
                             x: .value("min", relMinutes(f.ts)),
                             y: .value("asym", a)
                         )
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(Resona.Palette.lavender)
                         .interpolationMethod(.monotone)
                     }
                 }
                 RuleMark(y: .value("zero", 0))
-                    .foregroundStyle(.gray.opacity(0.5))
+                    .foregroundStyle(Resona.Palette.inkFaint.opacity(0.4))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             }
             .frame(height: 140)
         }
+        .resonaCard(tint: Color.white.opacity(0.6))
     }
 
     private func insightsBlock(_ ins: NaoClient.SessionInsights) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Insights")
-                .font(.headline)
+                .font(Resona.Typography.headline)
+                .foregroundStyle(Resona.Palette.ink)
             HStack(spacing: 14) {
                 if let slope = ins.trendSlopePerMin {
                     KV(k: "trend / min", v: String(format: "%+.3f", slope))
@@ -309,19 +316,19 @@ struct SessionDetailView: View {
                 }.foregroundStyle(.secondary)
             }
         }
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .resonaCard(tint: Resona.Palette.mist)
     }
 
     private func quartileChip(_ name: String, _ v: Double?) -> some View {
         HStack(spacing: 4) {
-            Text(name).foregroundStyle(.secondary)
+            Text(name).foregroundStyle(Resona.Palette.inkSoft)
             Text(v.map { String(format: "%.2f", $0) } ?? "—")
                 .monospacedDigit()
+                .foregroundStyle(Resona.Palette.ink)
         }
         .font(.caption)
-        .padding(.horizontal, 6).padding(.vertical, 2)
-        .background(Color.blue.opacity(0.10), in: Capsule())
+        .padding(.horizontal, 8).padding(.vertical, 3)
+        .background(Capsule().fill(Resona.Palette.lilac.opacity(0.5)))
     }
 
     private func relMinutes(_ ts: Double) -> Double {
@@ -352,14 +359,17 @@ private struct SessionChatPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Image(systemName: "bubble.left.and.bubble.right")
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .foregroundStyle(Resona.Palette.lavender)
                 Text("Ask the Coach about this session")
-                    .font(.headline)
+                    .font(Resona.Typography.headline)
+                    .foregroundStyle(Resona.Palette.ink)
                 Spacer()
                 if !messages.isEmpty {
                     Button("Reset") { messages.removeAll() }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .font(Resona.Typography.caption)
+                        .foregroundStyle(Resona.Palette.lavender)
                 }
             }
 
@@ -383,8 +393,7 @@ private struct SessionChatPanel: View {
                 input
             }
         }
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .resonaCard(tint: Resona.Palette.lilac.opacity(0.35))
     }
 
     private var suggestionChips: some View {
@@ -396,9 +405,12 @@ private struct SessionChatPanel: View {
         ]
         return FlowRow {
             ForEach(suggestions, id: \.self) { s in
-                Button(s) { Task { await send(prompt: s) } }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                Button {
+                    Task { await send(prompt: s) }
+                } label: {
+                    Text(s).resonaPill(active: false, tint: Resona.Palette.sky)
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -407,11 +419,14 @@ private struct SessionChatPanel: View {
         HStack {
             if m.role == "user" { Spacer(minLength: 40) }
             Text(m.content)
-                .padding(8)
+                .padding(10)
                 .background(
-                    (m.role == "user" ? Color.accentColor.opacity(0.15) : Color.gray.opacity(0.10)),
-                    in: RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: 12).fill(
+                        m.role == "user" ? Resona.Palette.peach.opacity(0.35)
+                                         : Color.white.opacity(0.7)
+                    )
                 )
+                .foregroundStyle(Resona.Palette.ink)
                 .frame(maxWidth: 600, alignment: m.role == "user" ? .trailing : .leading)
             if m.role != "user" { Spacer(minLength: 40) }
         }

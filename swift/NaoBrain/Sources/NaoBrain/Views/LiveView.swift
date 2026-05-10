@@ -185,16 +185,27 @@ struct LegendDot: View {
 struct MetricCard: View {
     let title: String
     let value: String
-    var tint: Color = .secondary
+    var tint: Color = Resona.Palette.lavender
+    var icon: String? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.title2).fontWeight(.semibold).foregroundStyle(tint)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.caption)
+                        .foregroundStyle(tint)
+                }
+                Text(title)
+                    .font(Resona.Typography.caption)
+                    .foregroundStyle(Resona.Palette.inkSoft)
+            }
+            Text(value)
+                .font(.system(.title2, design: .rounded).weight(.semibold))
+                .foregroundStyle(Resona.Palette.ink)
         }
-        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .resonaCard(tint: tint.opacity(0.18))
     }
 }
 
@@ -225,13 +236,8 @@ struct ContactCoachBanner: View {
                         }
                     }
                 }
-                .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.orange.opacity(0.3), lineWidth: 1)
-                )
+                .resonaCard(tint: Resona.Palette.coral.opacity(0.15))
             }
         }
     }

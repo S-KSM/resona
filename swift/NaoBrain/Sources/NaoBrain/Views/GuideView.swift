@@ -7,74 +7,83 @@ struct GuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 intro
-
                 BandsCard()
-
                 ChannelsCard()
-
                 DerivedCard()
-
                 privacy
-
                 Spacer()
             }
-            .padding()
+            .padding(20)
         }
     }
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("What you're looking at")
-                .font(.title2).fontWeight(.semibold)
+                .font(Resona.Typography.title)
+                .foregroundStyle(Resona.Palette.ink)
             Text("Resona reads your scalp electrical activity through 4 dry electrodes on the Muse band, splits it into frequency bands, and turns those into one number you can act on. Here's what each piece means.")
-                .foregroundStyle(.secondary)
+                .font(Resona.Typography.body)
+                .foregroundStyle(Resona.Palette.inkSoft)
         }
     }
 
     private var privacy: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label("Privacy", systemImage: "lock.shield")
-                .font(.headline)
-            Text("Raw EEG never leaves this Mac. Only state labels (e.g. \"focused\") are passed to the local Coach LLM. Nothing is uploaded.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "lock.shield.fill")
+                .font(.title2)
+                .foregroundStyle(Resona.Palette.sky)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Privacy")
+                    .font(Resona.Typography.headline)
+                    .foregroundStyle(Resona.Palette.ink)
+                Text("Raw EEG never leaves this Mac. Only state labels (e.g. \"focused\") are passed to the local Coach LLM. Nothing is uploaded.")
+                    .font(Resona.Typography.body)
+                    .foregroundStyle(Resona.Palette.inkSoft)
+            }
         }
-        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .resonaCard(tint: Resona.Palette.sky.opacity(0.25))
     }
 }
 
 private struct BandsCard: View {
     private let rows: [(String, String, String, String, Color)] = [
-        ("δ", "Delta",  "0.5–4 Hz", "Deep sleep, unconsciousness. High while awake = drowsy / sick / micro-lapse. Use as a fatigue gauge.", .purple),
-        ("θ", "Theta",  "4–8 Hz",  "Drifting, meditative, creative. Frontal θ during deep work = flow. Posterior θ = nodding off. Context matters.", .indigo),
-        ("α", "Alpha",  "8–13 Hz", "Relaxed wakeful, idling. Drops when you focus. Asymmetry between left and right α = mood/approach axis.", Color(red: 0.55, green: 0.75, blue: 0.95)),
-        ("β", "Beta",   "13–30 Hz","Alert, engaged, problem-solving. Low β = calm focus, mid β = active thinking, high β = anxiety. Drives Focus Coefficient.", .green),
-        ("γ", "Gamma",  "30+ Hz", "Feature binding, attention spikes, 'aha' moments. Easily polluted by jaw/muscle artifact — soft signal on this device.", .orange),
+        ("δ", "Delta",  "0.5–4 Hz", "Deep sleep, unconsciousness. High while awake = drowsy / sick / micro-lapse. Use as a fatigue gauge.", Resona.Palette.lavender),
+        ("θ", "Theta",  "4–8 Hz",  "Drifting, meditative, creative. Frontal θ during deep work = flow. Posterior θ = nodding off. Context matters.", Resona.Palette.lilac),
+        ("α", "Alpha",  "8–13 Hz", "Relaxed wakeful, idling. Drops when you focus. Asymmetry between left and right α = mood/approach axis.", Resona.Palette.sky),
+        ("β", "Beta",   "13–30 Hz","Alert, engaged, problem-solving. Low β = calm focus, mid β = active thinking, high β = anxiety. Drives Focus Coefficient.", Resona.Palette.mint),
+        ("γ", "Gamma",  "30+ Hz", "Feature binding, attention spikes, 'aha' moments. Easily polluted by jaw/muscle artifact — soft signal on this device.", Resona.Palette.peach),
     ]
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Frequency bands").font(.headline)
+            Text("Frequency bands")
+                .font(Resona.Typography.headline)
+                .foregroundStyle(Resona.Palette.ink)
             ForEach(rows, id: \.1) { sym, name, hz, what, color in
-                HStack(alignment: .top, spacing: 10) {
+                HStack(alignment: .top, spacing: 12) {
                     Text(sym)
-                        .font(.title2.monospaced())
-                        .frame(width: 32, alignment: .leading)
+                        .font(.system(size: 28, weight: .semibold, design: .serif).italic())
+                        .frame(width: 36, alignment: .leading)
                         .foregroundStyle(color)
                     VStack(alignment: .leading, spacing: 2) {
                         HStack {
-                            Text(name).font(.headline)
-                            Text(hz).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            Text(name)
+                                .font(Resona.Typography.headline)
+                                .foregroundStyle(Resona.Palette.ink)
+                            Text(hz)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(Resona.Palette.inkFaint)
                         }
-                        Text(what).font(.callout).foregroundStyle(.secondary)
+                        Text(what)
+                            .font(Resona.Typography.body)
+                            .foregroundStyle(Resona.Palette.inkSoft)
                     }
                 }
             }
         }
-        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .resonaCard(tint: Color.white.opacity(0.7))
     }
 }
 
@@ -87,32 +96,41 @@ private struct ChannelsCard: View {
     ]
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Electrodes (4 channels)").font(.headline)
+            Text("Electrodes (4 channels)")
+                .font(Resona.Typography.headline)
+                .foregroundStyle(Resona.Palette.ink)
             Text("Standard 10-20 placement. Frontal pair drives the engagement read; ear pair anchors the reference and catches blinks.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(Resona.Typography.caption)
+                .foregroundStyle(Resona.Palette.inkFaint)
             ForEach(rows, id: \.0) { ch, where_, region, what in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        Text(ch).font(.headline.monospaced()).frame(width: 50, alignment: .leading)
-                        Text(where_).font(.callout)
+                        Text(ch)
+                            .font(.callout.monospaced().weight(.semibold))
+                            .frame(width: 50, alignment: .leading)
+                            .foregroundStyle(Resona.Palette.lavender)
+                        Text(where_)
+                            .font(Resona.Typography.body)
+                            .foregroundStyle(Resona.Palette.ink)
                     }
                     Text("\(region) — \(what)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(Resona.Typography.caption)
+                        .foregroundStyle(Resona.Palette.inkSoft)
                         .padding(.leading, 50)
                 }
             }
         }
-        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .resonaCard(tint: Color.white.opacity(0.7))
     }
 }
 
 private struct DerivedCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Derived signals").font(.headline)
+            Text("Derived signals")
+                .font(Resona.Typography.headline)
+                .foregroundStyle(Resona.Palette.ink)
 
             metricRow(
                 "Focus Coefficient",
@@ -135,18 +153,23 @@ private struct DerivedCard: View {
                 "Activation level, regardless of valence. High during both excitement and stress."
             )
         }
-        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .resonaCard(tint: Resona.Palette.butter.opacity(0.35))
     }
 
     private func metricRow(_ name: String, _ formula: String, _ what: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text(name).font(.headline)
-                Text(formula).font(.caption.monospaced()).foregroundStyle(.secondary)
+                Text(name)
+                    .font(Resona.Typography.headline)
+                    .foregroundStyle(Resona.Palette.ink)
+                Text(formula)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(Resona.Palette.peach)
             }
-            Text(what).font(.callout).foregroundStyle(.secondary)
+            Text(what)
+                .font(Resona.Typography.body)
+                .foregroundStyle(Resona.Palette.inkSoft)
         }
     }
 }

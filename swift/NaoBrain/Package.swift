@@ -12,7 +12,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "NaoBrain",
-            path: "Sources/NaoBrain"
+            path: "Sources/NaoBrain",
+            resources: [
+                .process("Resources")
+            ]
         )
     ]
 )

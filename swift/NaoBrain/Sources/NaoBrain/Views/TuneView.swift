@@ -12,21 +12,36 @@ struct TuneView: View {
         case quiet     = "Quiet rules"
         case advanced  = "Advanced"
         var id: String { rawValue }
+
+        var symbol: String {
+            switch self {
+            case .source:    return "antenna.radiowaves.left.and.right"
+            case .calibrate: return "scope"
+            case .quiet:     return "moon.zzz.fill"
+            case .advanced:  return "gearshape.2.fill"
+            }
+        }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("", selection: $sub) {
+            HStack(spacing: 6) {
                 ForEach(Sub.allCases) { s in
-                    Text(s.rawValue).tag(s)
+                    Button {
+                        sub = s
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: s.symbol).font(.caption)
+                            Text(s.rawValue)
+                        }
+                        .resonaPill(active: sub == s, tint: Resona.Palette.lavender)
+                    }
+                    .buttonStyle(.plain)
                 }
+                Spacer()
             }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 460)
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-
-            Divider()
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
 
             Group {
                 switch sub {
@@ -42,8 +57,6 @@ struct TuneView: View {
 }
 
 /// Advanced — Skeptic appraisal monitor + future SpO2 / Apple Watch hookup.
-/// Most users never need this tab; lives under Tune so it stays out of the
-/// daily flow.
 struct AdvancedView: View {
     var body: some View {
         ScrollView {
@@ -55,24 +68,25 @@ struct AdvancedView: View {
 
                 section("Pulse-ox / SpO2") {
                     Label("Apple Watch HealthKit bridge — coming soon.", systemImage: "applewatch")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Resona.Palette.inkSoft)
                     Text("Once connected, Resona will fuse SpO2 + HRV with EEG to flag breath-related focus crashes (apnea, mouth-breathing, slumped posture) and unlock the Breath Coach loop.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(Resona.Typography.caption)
+                        .foregroundStyle(Resona.Palette.inkFaint)
                 }
             }
-            .padding()
+            .padding(20)
         }
     }
 
     @ViewBuilder
     private func section<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.headline)
+            Text(title)
+                .font(Resona.Typography.headline)
+                .foregroundStyle(Resona.Palette.ink)
             content()
         }
-        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .resonaCard(tint: Color.white.opacity(0.7))
     }
 }
