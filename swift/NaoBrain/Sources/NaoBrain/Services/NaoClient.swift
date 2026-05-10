@@ -26,6 +26,7 @@ final class NaoClient: ObservableObject {
     @Published var appraisal: AppraisalState?
     @Published var activeSession: Session?
     @Published var sessions: [Session] = []
+    @Published var verdict: Verdict?
 
     // MARK: Internals
 
@@ -117,6 +118,12 @@ final class NaoClient: ObservableObject {
     func loadAppraisalStatus() async {
         if let s: AppraisalState = try? await get("/appraisal/status") {
             self.appraisal = s
+        }
+    }
+
+    func loadVerdict() async {
+        if let v: Verdict = try? await get("/verdict") {
+            self.verdict = v
         }
     }
 
@@ -529,6 +536,7 @@ final class NaoClient: ObservableObject {
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             await loadSignalQuality()
+            await loadVerdict()
             // Refresh Gatekeeper every 2 s — edge transitions drive the
             // FocusModeBridge so we don't need it faster than that.
             tick += 1

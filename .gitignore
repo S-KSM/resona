@@ -34,3 +34,6 @@ build/
 
 # Logs + local artifacts
 *.log
+
+# Built .app bundles (use swift/NaoBrain/build_app.sh to regenerate)
+swift/NaoBrain/*.app/

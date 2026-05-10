@@ -2,16 +2,20 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject var client: NaoClient
-    @State private var tab: Tab = .live
+    @State private var tab: Tab = .now
 
+    /// Tabs are organized by user goal, not subsystem.
+    /// - now: "what should I do right now?" — verdict + minimal stats
+    /// - sessions: "review or record a labeled session"
+    /// - coach: LLM Q&A about your state. Skeptic surfaces inline as a callout.
+    /// - guide: "what am I looking at?" — wave + channel reference
+    /// - tune: setup, calibrate, quiet rules, voice — all the plumbing
     enum Tab: String, CaseIterable, Identifiable {
-        case live = "Live"
+        case now      = "Now"
         case sessions = "Sessions"
-        case setup = "Setup"
-        case calibrate = "Calibrate"
-        case coach = "Coach"
-        case quiet = "Quiet"
-        case skeptic = "Skeptic"
+        case coach    = "Coach"
+        case guide    = "Guide"
+        case tune     = "Tune"
         var id: String { rawValue }
     }
 
@@ -38,13 +42,11 @@ struct RootView: View {
 
             Group {
                 switch tab {
-                case .live:      LiveView()
-                case .sessions:  SessionsView()
-                case .setup:     SetupView()
-                case .calibrate: CalibrateView()
-                case .coach:     CoachView()
-                case .quiet:     QuietView()
-                case .skeptic:   SkepticView()
+                case .now:      NowView()
+                case .sessions: SessionsView()
+                case .coach:    CoachView()
+                case .guide:    GuideView()
+                case .tune:     TuneView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -55,6 +55,7 @@ from nao.llm.skills import (
     build_system_prompt,
     current_state_block,
 )
+from nao.process.verdict import verdict as build_verdict
 from nao.sessions.insights import build_insights
 from nao.state import Calibration, label_frame
 
@@ -151,6 +152,31 @@ def history(seconds: float = 30.0) -> list[dict[str, Any]]:
 @app.get("/signal/quality")
 def signal_quality() -> dict[str, Any]:
     return current_state_block(history_seconds=2.0)
+
+
+@app.get("/verdict")
+def verdict_now() -> dict[str, Any]:
+    """One-sentence natural-language read of the current FocusFrame.
+
+    Drives the Now tab and menu-bar — rule-based so the same state always
+    produces the same read (LLM is reserved for Coach Q&A)."""
+    frame = runtime.latest_frame()
+    if frame is None:
+        return {
+            "headline": "Warming up.",
+            "detail": "Waiting for the first window of clean signal.",
+            "action": "Sit still for a moment.",
+            "tone": "noisy",
+        }
+    cal = Calibration.load()
+    hist = runtime.recent_frames(8.0)
+    v = build_verdict(frame, calibration=cal, history=hist)
+    return {
+        "headline": v.headline,
+        "detail": v.detail,
+        "action": v.action,
+        "tone": v.tone,
+    }
 
 
 # ---- SSE event stream ----
