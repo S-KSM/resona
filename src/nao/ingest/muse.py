@@ -36,12 +36,14 @@ class MuseStream:
         backoff_s: initial backoff; doubles each retry.
     """
     address: str | None = None
-    retries: int = 3
+    retries: int = 8
     backoff_s: float = 1.0
+    silent_timeout_s: float = 5.0
 
     _q: queue.Queue[Sample] = field(default_factory=queue.Queue, init=False)
     _running: bool = field(default=False, init=False)
     _thread: threading.Thread | None = field(default=None, init=False)
+    _muselsl_proc: object | None = field(default=None, init=False)
     _last_accel: np.ndarray = field(
         default_factory=lambda: np.array([0.0, 0.0, 1.0]), init=False
     )
@@ -63,8 +65,29 @@ class MuseStream:
 
     def stop(self) -> None:
         self._running = False
+        self._terminate_muselsl_proc()
         if self._thread:
             self._thread.join(timeout=2.0)
+
+    def _terminate_muselsl_proc(self) -> None:
+        """Kill the muselsl subprocess (if any). Required because muselsl's
+        stream() blocks in a daemon thread and holds BLE — only a real OS
+        signal frees the headband on pipeline restart."""
+        proc = self._muselsl_proc
+        if proc is None:
+            return
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3.0)
+                except Exception:  # noqa: BLE001
+                    proc.kill()
+                    proc.wait(timeout=2.0)
+        except Exception as e:  # noqa: BLE001
+            log.warning("muselsl subprocess shutdown raised: %s", e)
+        finally:
+            self._muselsl_proc = None
 
     def __iter__(self) -> Iterator[Sample]:
         if not self._running:
@@ -79,18 +102,29 @@ class MuseStream:
 
     def _run(self) -> None:
         backoff = self.backoff_s
-        for attempt in range(1, self.retries + 1):
+        attempt = 0
+        while self._running and attempt < self.retries:
+            attempt += 1
             try:
                 self._stream_loop()
-                return
+                if not self._running:
+                    return
+                # Stream returned without exception but we're still running →
+                # treat as a soft drop, retry with reset backoff.
+                log.info("MuseStream loop exited; reconnecting (attempt %d)", attempt)
+                attempt = 0
+                backoff = self.backoff_s
+                continue
             except Exception as e:  # noqa: BLE001 — BLE libs raise broadly
                 log.warning("MuseStream attempt %d failed: %s", attempt, e)
-                if attempt == self.retries:
-                    log.error("MuseStream giving up.")
-                    self._running = False
+                self._terminate_muselsl_proc()
+                if not self._running:
                     return
                 time.sleep(backoff)
-                backoff *= 2
+                backoff = min(backoff * 2, 30.0)
+        if self._running:
+            log.error("MuseStream giving up after %d attempts.", self.retries)
+        self._running = False
 
     def _stream_loop(self) -> None:
         """Try OpenMuse; fall back to muselsl if missing."""
@@ -155,60 +189,69 @@ class MuseStream:
             ctx.stop()
 
     def _stream_muselsl(self) -> None:
-        """Fallback: use muselsl + pylsl. muselsl.stream() pushes to LSL.
+        """Fallback: spawn `muselsl stream` as a subprocess so we can kill it
+        on pipeline restart. The previous in-process daemon-thread approach
+        leaked: muselsl_stream() blocks in C-level BLE code that doesn't
+        observe our `_running` flag, so two parallel muselsl instances ended
+        up fighting the same headband across restarts.
 
-        muselsl's bleak backend calls asyncio.get_event_loop(), which on
-        Python 3.13 raises in non-main threads unless a loop is set first.
-        We pre-install one in the spawned thread.
-
-        muselsl publishes 4 LSL outlets: EEG (mandatory) + Accelerometer +
-        Gyroscope + PPG (optional, may be absent on older muselsl/firmware).
-        We resolve them all but only EEG is required.
+        muselsl publishes 4 LSL outlets: EEG (mandatory) + ACC + GYRO + PPG.
+        Only EEG is required; aux outlets are best-effort.
         """
-        import asyncio
+        import subprocess
+        import sys
 
-        from muselsl import stream as muselsl_stream  # type: ignore
         from pylsl import StreamInlet, resolve_byprop  # type: ignore
 
-        def _muselsl_runner() -> None:
-            asyncio.set_event_loop(asyncio.new_event_loop())
-            # ppg=True + acc=True + gyro=True asks muselsl to publish all 4.
-            try:
-                muselsl_stream(
-                    address=self.address, ppg_enabled=True, acc_enabled=True, gyro_enabled=True
-                )
-            except TypeError:
-                # Older muselsl signatures lack the per-stream flags.
-                muselsl_stream(address=self.address)
+        cmd = [sys.executable, "-m", "muselsl", "stream", "-p", "-c", "-g"]
+        if self.address:
+            cmd += ["-a", self.address]
+        log.info("Spawning muselsl: %s", " ".join(cmd))
+        self._muselsl_proc = subprocess.Popen(
+            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
 
-        threading.Thread(target=_muselsl_runner, name="muselsl", daemon=True).start()
-        time.sleep(2.0)  # allow LSL outlets to come up
+        time.sleep(2.0)  # let outlet appear
         streams = resolve_byprop("type", "EEG", timeout=10.0)
         if not streams:
             raise RuntimeError("No LSL EEG stream resolved")
         inlet = StreamInlet(streams[0])
 
-        # Optional outlets — best-effort. Bring them up on background threads
-        # so we never block EEG on a missing PPG outlet. muselsl 2.3 publishes
-        # type names "ACC" and "GYRO" (not "Accelerometer" / "Gyroscope") —
-        # mismatched type strings made the outlets silently drop earlier.
+        # muselsl 2.3 publishes "ACC" and "GYRO" type strings (not
+        # "Accelerometer" / "Gyroscope") — mismatched names dropped the aux
+        # outlets silently in earlier versions of this code.
         self._spawn_aux_inlet("ACC", self._on_accel_chunk)
         self._spawn_aux_inlet("GYRO", self._on_gyro_chunk)
         self._spawn_aux_inlet("PPG", self._on_ppg_chunk)
 
-        while self._running:
-            chunk, ts = inlet.pull_chunk(timeout=0.1, max_samples=32)
-            for row, t in zip(chunk, ts):
-                arr = np.asarray(row, dtype=float)[: len(EEG_CHANNELS)]
-                self._q.put(
-                    Sample(
-                        ts=float(t),
-                        eeg=arr,
-                        accel=self._last_accel.copy(),
-                        gyro=self._last_gyro.copy(),
-                        ppg=self._last_ppg.copy(),
+        last_chunk_ts = time.monotonic()
+        try:
+            while self._running:
+                if self._muselsl_proc.poll() is not None:
+                    raise RuntimeError(
+                        f"muselsl subprocess exited rc={self._muselsl_proc.returncode}"
                     )
-                )
+                chunk, ts = inlet.pull_chunk(timeout=0.1, max_samples=32)
+                if chunk:
+                    last_chunk_ts = time.monotonic()
+                    for row, t in zip(chunk, ts):
+                        arr = np.asarray(row, dtype=float)[: len(EEG_CHANNELS)]
+                        self._q.put(
+                            Sample(
+                                ts=float(t),
+                                eeg=arr,
+                                accel=self._last_accel.copy(),
+                                gyro=self._last_gyro.copy(),
+                                ppg=self._last_ppg.copy(),
+                            )
+                        )
+                elif time.monotonic() - last_chunk_ts > self.silent_timeout_s:
+                    raise RuntimeError(
+                        f"muselsl silent for {self.silent_timeout_s:.0f}s; "
+                        "BLE likely dropped — triggering reconnect"
+                    )
+        finally:
+            self._terminate_muselsl_proc()
 
     def _spawn_aux_inlet(
         self, lsl_type: str, on_chunk
