@@ -1,0 +1,56 @@
+[project]
+name = "nao"
+version = "0.1.0"
+description = "Neuro-Agentic Orchestration: Muse-14B3 EEG -> local pipeline -> MCP server"
+requires-python = ">=3.12"
+authors = [{ name = "Shobeir Seddington" }]
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "pandas>=2.2",
+    "pydantic>=2.7",
+    "streamlit>=1.36",
+    "mcp>=1.27",
+    "fastapi>=0.110",
+    "uvicorn>=0.30",
+    "sse-starlette>=2.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+hardware = [
+    # BLE + Muse streaming. muselsl ships today; OpenMuse swap is behind
+    # the Stream protocol so this set can change without touching upstream code.
+    "muselsl>=2.3",
+    "bleak>=0.22",
+    "mne>=1.7",
+]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+nao-pair = "nao.scripts.pair_muse:main"
+nao-baseline = "nao.scripts.record_baseline:main"
+nao-dash = "nao.dash.run:main"
+nao-mcp = "nao.mcp.server:main"
+nao-verify = "nao.scripts.verify_live:main"
+nao-calibrate = "nao.scripts.calibrate:main"
+nao-sidecar = "nao.api.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nao"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

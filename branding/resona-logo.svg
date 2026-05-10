@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 200" role="img" aria-label="Resona — your mind, in tune.">
+  <!-- Compact mark on left -->
+  <g transform="translate(20,40)">
+    <rect width="120" height="120" rx="28" fill="#1B1B3A"/>
+    <path d="M 22 60 C 36 38, 46 38, 60 60 C 74 82, 84 82, 98 60"
+          fill="none" stroke="#F8E9C5" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M 22 60 C 36 82, 46 82, 60 60 C 74 38, 84 38, 98 60"
+          fill="none" stroke="#FFC857" stroke-width="3.2" stroke-linecap="round"/>
+    <circle cx="60" cy="60" r="5.5" fill="#FFE9B0"/>
+    <circle cx="60" cy="60" r="2" fill="#1B1B3A"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="172" y="106"
+        font-family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+        font-weight="500" font-size="68" letter-spacing="10" fill="#1B1B3A">RESONA</text>
+
+  <!-- Tagline -->
+  <text x="174" y="142"
+        font-family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+        font-weight="300" font-style="italic" font-size="19" fill="#5A5A7A">your mind, in tune.</text>
+</svg>

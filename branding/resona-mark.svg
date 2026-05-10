@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Resona mark">
+  <!-- Transparent-background mark for menu bar / favicon use -->
+  <path d="M 12 60 C 28 28, 40 28, 60 60 C 80 92, 92 92, 108 60"
+        fill="none" stroke="#1B1B3A" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M 12 60 C 28 92, 40 92, 60 60 C 80 28, 92 28, 108 60"
+        fill="none" stroke="#FFC857" stroke-width="4.5" stroke-linecap="round"/>
+  <circle cx="60" cy="60" r="6" fill="#1B1B3A"/>
+  <circle cx="60" cy="60" r="2.4" fill="#FFE9B0"/>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Resona app icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1B1B3A"/>
+      <stop offset="100%" stop-color="#0E0E22"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#FFD787" stop-opacity="0.95"/>
+      <stop offset="45%" stop-color="#FFC857" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#FFC857" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Indigo tile, macOS-friendly rounded square -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+
+  <!-- Wave A: brain rhythm. Cream. Peaks above center, troughs below at right. -->
+  <path d="M 160 512
+           C 304 320, 384 320, 512 512
+           C 640 704, 720 704, 864 512"
+        fill="none" stroke="#F8E9C5" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- Wave B: agent rhythm. Amber. Inverted phase, locked at center. -->
+  <path d="M 160 512
+           C 304 704, 384 704, 512 512
+           C 640 320, 720 320, 864 512"
+        fill="none" stroke="#FFC857" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- Resonance node — phase lock -->
+  <circle cx="512" cy="512" r="140" fill="url(#glow)"/>
+  <circle cx="512" cy="512" r="28" fill="#FFE9B0"/>
+  <circle cx="512" cy="512" r="12" fill="#1B1B3A"/>
+</svg>

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Swift / Xcode
+.build/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+
+# Local Claude / agent state
+.claude/
+
+# CSV recordings — keep test fixtures
+*.csv
+!tests/fixtures/*.csv
+
+# Logs + local artifacts
+*.log
