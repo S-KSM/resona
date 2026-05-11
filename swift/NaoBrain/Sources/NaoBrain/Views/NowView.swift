@@ -36,6 +36,12 @@ struct NowView: View {
 
                 quickStats
 
+                LiveSignalPanel(
+                    history: client.history,
+                    windowFrames: 40,
+                    isFresh: !isStuck && client.latestFrame != nil
+                )
+
                 ContactCoachBanner(
                     frame: client.latestFrame,
                     quality: client.signalQuality?.signalQuality

@@ -537,6 +537,230 @@ extension FocusOrb {
     }
 }
 
+// MARK: LiveSignalPanel — "is the headband actually streaming?" widget.
+//
+// 5-column strip: 4 per-channel sparklines (TP9, AF7, AF8, TP10) + the
+// across-channel mean, drawn from the last ~10s of frames in
+// client.history. Reads at a glance — if the lines are wiggling and the
+// pulse dot is green, data is flowing; if they're flat or the dot is
+// coral, something's stuck.
+
+struct LiveSignalPanel: View {
+    let history: [FocusFrame]
+    /// Window size in frames. At ~4 Hz this is ~10 s of signal.
+    var windowFrames: Int = 40
+    /// Whether a frame has arrived within the freshness threshold.
+    var isFresh: Bool = true
+
+    private let channelLabels = ["TP9", "AF7", "AF8", "TP10"]
+    private let channelTints = [
+        Resona.Palette.lavender,
+        Resona.Palette.coral,
+        Resona.Palette.apricot,
+        Resona.Palette.sky
+    ]
+
+    /// Most recent N frames (clamped to history length).
+    private var window: [FocusFrame] {
+        guard !history.isEmpty else { return [] }
+        let n = min(windowFrames, history.count)
+        return Array(history.suffix(n))
+    }
+
+    /// Per-channel series of alpha values over the window.
+    private func channelSeries(_ idx: Int) -> [Double] {
+        window.compactMap { frame in
+            frame.alphaPerChannel.flatMap { idx < $0.count ? $0[idx] : nil }
+        }
+    }
+
+    /// Mean across channels, frame-by-frame.
+    private var meanSeries: [Double] {
+        window.compactMap { frame in
+            guard let chs = frame.alphaPerChannel, !chs.isEmpty else { return nil }
+            return chs.reduce(0, +) / Double(chs.count)
+        }
+    }
+
+    /// Latest value formatter — strips fractional noise + handles empty.
+    private func latest(_ s: [Double]) -> String {
+        guard let v = s.last else { return "—" }
+        return String(format: "%.2f", v)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "waveform")
+                    .foregroundStyle(Resona.Palette.lavender)
+                    .font(.system(size: 14, weight: .semibold))
+                Text("LIVE SIGNAL · α per channel")
+                    .font(Resona.Typography.label)
+                    .tracking(0.8)
+                    .foregroundStyle(Resona.Palette.inkFaint)
+                Spacer()
+                FreshnessDot(isFresh: isFresh, sampleCount: window.count)
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(0..<4, id: \.self) { i in
+                    SparklineColumn(
+                        label: channelLabels[i],
+                        value: latest(channelSeries(i)),
+                        series: channelSeries(i),
+                        tint: channelTints[i]
+                    )
+                }
+                // Mean column — separated by a subtle divider strip
+                Rectangle()
+                    .fill(Resona.Palette.stone.opacity(0.5))
+                    .frame(width: 1, height: 56)
+                SparklineColumn(
+                    label: "MEAN",
+                    value: latest(meanSeries),
+                    series: meanSeries,
+                    tint: Resona.Palette.ink,
+                    bold: true
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .resonaCard(tint: Color.white.opacity(0.6))
+        .help("Alpha-band power per Muse electrode over the last \(windowFrames / 4) s. The MEAN column averages across all four channels. Active wiggle = data flowing; flat line = sensor not contacting or sidecar stalled.")
+    }
+}
+
+/// One column of the LiveSignalPanel: label · value · sparkline.
+private struct SparklineColumn: View {
+    let label: String
+    let value: String
+    let series: [Double]
+    let tint: Color
+    var bold: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 10, weight: bold ? .bold : .semibold))
+                .tracking(0.6)
+                .foregroundStyle(Resona.Palette.inkFaint)
+            Text(value)
+                .font(.system(size: 14, weight: .semibold, design: .serif).monospacedDigit())
+                .foregroundStyle(Resona.Palette.ink)
+            Sparkline(values: series, tint: tint, filled: bold)
+                .frame(height: 32)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Tiny line chart drawn as a Path — cheaper than spinning up Charts
+/// instances per channel, and gives us full control over gradient fill.
+struct Sparkline: View {
+    let values: [Double]
+    var tint: Color = Resona.Palette.lavender
+    var filled: Bool = false
+
+    private var range: (lo: Double, hi: Double) {
+        guard let lo = values.min(), let hi = values.max() else {
+            return (0, 1)
+        }
+        // Pad the band slightly so the line doesn't kiss top/bottom.
+        let pad = max(0.001, (hi - lo) * 0.15)
+        return (lo - pad, hi + pad)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            if values.count < 2 {
+                // Flat line — no signal yet
+                Path { p in
+                    p.move(to: CGPoint(x: 0, y: geo.size.height / 2))
+                    p.addLine(to: CGPoint(x: geo.size.width, y: geo.size.height / 2))
+                }
+                .stroke(
+                    Resona.Palette.stone,
+                    style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [3, 3])
+                )
+            } else {
+                let (lo, hi) = range
+                let span = max(0.0001, hi - lo)
+                ZStack {
+                    if filled {
+                        // Area fill for the mean column — visually anchors it.
+                        Self.areaPath(values: values, lo: lo, span: span, size: geo.size)
+                            .fill(
+                                LinearGradient(
+                                    colors: [tint.opacity(0.30), tint.opacity(0.05)],
+                                    startPoint: .top, endPoint: .bottom
+                                )
+                            )
+                    }
+                    Self.linePath(values: values, lo: lo, span: span, size: geo.size)
+                        .stroke(
+                            tint,
+                            style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round)
+                        )
+                }
+            }
+        }
+    }
+
+    private static func linePath(values: [Double], lo: Double, span: Double, size: CGSize) -> Path {
+        let dx = size.width / CGFloat(max(1, values.count - 1))
+        return Path { p in
+            for (i, v) in values.enumerated() {
+                let x = CGFloat(i) * dx
+                let y = size.height * (1 - CGFloat((v - lo) / span))
+                if i == 0 { p.move(to: CGPoint(x: x, y: y)) }
+                else      { p.addLine(to: CGPoint(x: x, y: y)) }
+            }
+        }
+    }
+
+    private static func areaPath(values: [Double], lo: Double, span: Double, size: CGSize) -> Path {
+        var p = linePath(values: values, lo: lo, span: span, size: size)
+        p.addLine(to: CGPoint(x: size.width, y: size.height))
+        p.addLine(to: CGPoint(x: 0, y: size.height))
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// Freshness pulse — green dot pulsing while frames stream, coral when stale.
+private struct FreshnessDot: View {
+    let isFresh: Bool
+    let sampleCount: Int
+
+    @State private var pulse: Bool = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ZStack {
+                if isFresh {
+                    Circle()
+                        .fill(Resona.Palette.focus.opacity(0.35))
+                        .frame(width: 14, height: 14)
+                        .scaleEffect(pulse ? 1.6 : 1.0)
+                        .opacity(pulse ? 0 : 1)
+                }
+                Circle()
+                    .fill(isFresh ? Resona.Palette.focus : Resona.Palette.coral)
+                    .frame(width: 7, height: 7)
+            }
+            .frame(width: 16, height: 16)
+            Text(isFresh ? "\(sampleCount) samples · streaming" : "stalled")
+                .font(Resona.Typography.caption)
+                .foregroundStyle(isFresh ? Resona.Palette.inkSoft : Resona.Palette.coral)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.1).repeatForever(autoreverses: false)) {
+                pulse = true
+            }
+        }
+    }
+}
+
 // MARK: CoachOrb — tiny brand glyph for the Ask the Coach affordance.
 //
 // 22-pt iridescent dot with a single sparkle — reads as the mascot
