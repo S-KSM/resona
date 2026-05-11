@@ -5,6 +5,7 @@ hardware; behind our Stream iface upstream code does not care which.
 """
 from __future__ import annotations
 
+import collections
 import logging
 import queue
 import threading
@@ -38,12 +39,22 @@ class MuseStream:
     address: str | None = None
     retries: int = 8
     backoff_s: float = 1.0
-    silent_timeout_s: float = 5.0
+    # 8 s (was 5 s) — gives BLE a touch more grace on a transient stutter
+    # so the watchdog doesn't false-positive every minor packet gap into a
+    # full reconnect storm.
+    silent_timeout_s: float = 8.0
 
     _q: queue.Queue[Sample] = field(default_factory=queue.Queue, init=False)
     _running: bool = field(default=False, init=False)
     _thread: threading.Thread | None = field(default=None, init=False)
     _muselsl_proc: object | None = field(default=None, init=False)
+    # Timestamps (monotonic seconds) of recent muse_runner subprocess exits.
+    # Used by `stream_health()` to decide whether the BLE link is unstable
+    # enough to warrant a user-facing diagnostic. Bounded — only the last
+    # few seconds matter.
+    _recent_drops: collections.deque = field(
+        default_factory=lambda: collections.deque(maxlen=20), init=False
+    )
     _last_accel: np.ndarray = field(
         default_factory=lambda: np.array([0.0, 0.0, 1.0]), init=False
     )
@@ -100,6 +111,25 @@ class MuseStream:
             except queue.Empty:
                 continue
 
+    def stream_health(self) -> dict:
+        """Snapshot for the UI: are we in a flapping-BLE state?
+
+        `unstable` = True when 3+ subprocess drops have happened in the
+        last 30 s. Three is the threshold where it stops looking like a
+        transient and starts looking like a sustained problem (low Muse
+        battery, kernel BLE state, headband held by another paired
+        device, etc.) the user should act on.
+        """
+        now = time.monotonic()
+        window = 30.0
+        recent = [t for t in self._recent_drops if (now - t) <= window]
+        last_drop_age = (now - self._recent_drops[-1]) if self._recent_drops else None
+        return {
+            "unstable": len(recent) >= 3,
+            "recent_drops": len(recent),
+            "last_drop_age_s": last_drop_age,
+        }
+
     # --- internals ---
 
     def _run(self) -> None:
@@ -119,6 +149,7 @@ class MuseStream:
                 continue
             except Exception as e:  # noqa: BLE001 — BLE libs raise broadly
                 log.warning("MuseStream attempt %d failed: %s", attempt, e)
+                self._recent_drops.append(time.monotonic())
                 self._terminate_muselsl_proc()
                 if not self._running:
                     return

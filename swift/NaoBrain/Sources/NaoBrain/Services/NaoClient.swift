@@ -28,6 +28,7 @@ final class NaoClient: ObservableObject {
     @Published var sessions: [Session] = []
     @Published var verdict: Verdict?
     @Published var battery: BatteryStatus?
+    @Published var streamHealth: StreamHealth?
 
     // MARK: Internals
 
@@ -131,6 +132,12 @@ final class NaoClient: ObservableObject {
     func loadBattery() async {
         if let b: BatteryStatus = try? await get("/battery") {
             self.battery = b
+        }
+    }
+
+    func loadStreamHealth() async {
+        if let h: StreamHealth = try? await get("/ble/health") {
+            self.streamHealth = h
         }
     }
 
@@ -550,6 +557,7 @@ final class NaoClient: ObservableObject {
             if tick % 2 == 0 {
                 await loadGatekeeperStatus()
                 await loadAppraisalStatus()
+                await loadStreamHealth()
                 if self.activeSession != nil {
                     await loadActiveSession()
                 }

@@ -537,6 +537,175 @@ extension FocusOrb {
     }
 }
 
+// MARK: BLEUnstableBanner — actionable diagnostic when the headband keeps
+// dropping. Surfaces only when sidecar reports `unstable=true` (≥3 BLE
+// drops in 30 s). Tapping the button opens a recovery sheet with the
+// step-by-step checklist.
+
+struct BLEUnstableBanner: View {
+    let recentDrops: Int
+    @State private var showRecovery: Bool = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                .font(.title3)
+                .foregroundStyle(Resona.Palette.coral)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Headband link is unstable")
+                    .font(Resona.Typography.headline)
+                    .foregroundStyle(Resona.Palette.ink)
+                Text("\(recentDrops) BLE drops in the last 30 s. The Muse keeps reconnecting and dropping. Try the recovery steps.")
+                    .font(Resona.Typography.caption)
+                    .foregroundStyle(Resona.Palette.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Button {
+                showRecovery = true
+            } label: {
+                Text("Recover")
+                    .resonaPill(active: true, tint: Resona.Palette.coral)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .resonaCard(tint: Resona.Palette.coral.opacity(0.18))
+        .sheet(isPresented: $showRecovery) {
+            BLERecoverySheet(isPresented: $showRecovery)
+        }
+    }
+}
+
+/// Step-by-step recovery instructions. App can't actually power-cycle a
+/// Muse or toggle macOS Bluetooth (would need user permission + admin),
+/// so this is a guided self-service flow.
+struct BLERecoverySheet: View {
+    @Binding var isPresented: Bool
+
+    private let steps: [(symbol: String, title: String, body: String)] = [
+        (
+            "power",
+            "Power-cycle the Muse 2",
+            "Hold the power button on the headband for 3 seconds until the LED flashes. Wait 5 seconds, then press once to power back on."
+        ),
+        (
+            "bolt.batteryblock",
+            "Check battery level",
+            "BLE gets flaky below ~20%. If the battery LED isn't solid, plug in for 10 minutes before retrying."
+        ),
+        (
+            "iphone.gen2.slash",
+            "Disconnect other devices",
+            "If your phone or another Mac is also paired to this Muse, the headband can flap between hosts. Close the Muse app on your phone."
+        ),
+        (
+            "antenna.radiowaves.left.and.right",
+            "Toggle macOS Bluetooth",
+            "Open Control Center → Bluetooth → off. Wait 5 seconds. Turn it back on. Then hit Restart signal in Resona."
+        ),
+        (
+            "person.fill",
+            "Reseat the headband",
+            "Push hair clear of the ear pads, sit the band 1 cm above your eyebrows on bare skin. Bad contact will make the firmware drop the link on its own."
+        ),
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Recover the link")
+                        .font(Resona.Typography.title)
+                        .foregroundStyle(Resona.Palette.ink)
+                    Text("Walk through these in order. Most BLE drops are #1 or #2.")
+                        .font(Resona.Typography.caption)
+                        .foregroundStyle(Resona.Palette.inkSoft)
+                }
+                Spacer()
+                Button {
+                    isPresented = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(Resona.Palette.inkFaint)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+
+            Divider().background(Resona.Palette.stone.opacity(0.5))
+
+            ScrollView {
+                VStack(spacing: 14) {
+                    ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
+                        BLEStepRow(index: idx + 1, symbol: step.symbol, title: step.title, text: step.body)
+                    }
+                }
+                .padding(20)
+            }
+
+            Divider().background(Resona.Palette.stone.opacity(0.5))
+
+            HStack {
+                Spacer()
+                Button {
+                    isPresented = false
+                } label: {
+                    Text("Got it")
+                        .resonaPill(active: true, tint: Resona.Palette.lavender)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+        }
+        .frame(minWidth: 480, minHeight: 540)
+        .background(Resona.Gradients.appBackground)
+    }
+}
+
+private struct BLEStepRow: View {
+    let index: Int
+    let symbol: String
+    let title: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Resona.Palette.lavender, Resona.Palette.lilac],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 44, height: 44)
+                Image(systemName: symbol)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text("\(index).")
+                        .font(.system(size: 12, weight: .bold, design: .serif))
+                        .foregroundStyle(Resona.Palette.lavender)
+                    Text(title)
+                        .font(Resona.Typography.headline)
+                        .foregroundStyle(Resona.Palette.ink)
+                }
+                Text(text)
+                    .font(Resona.Typography.body2)
+                    .foregroundStyle(Resona.Palette.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .resonaCard(tint: Color.white.opacity(0.65))
+    }
+}
+
 // MARK: LiveSignalPanel — "is the headband actually streaming?" widget.
 //
 // 5-column strip: 4 per-channel sparklines (TP9, AF7, AF8, TP10) + the
@@ -1023,25 +1192,39 @@ struct MuseDevicePill: View {
     let connected: Bool
     let batteryPct: Double?
 
+    private var batteryLow: Bool { (batteryPct ?? 100) < 20 }
+
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [Resona.Palette.lavender, Resona.Palette.lilac],
+                            colors: batteryLow
+                                ? [Resona.Palette.coral, Resona.Palette.apricot]
+                                : [Resona.Palette.lavender, Resona.Palette.lilac],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         )
                     )
                     .frame(width: 44, height: 44)
-                Image(systemName: "brain.head.profile")
+                Image(systemName: batteryLow ? "battery.25" : "brain.head.profile")
                     .foregroundStyle(.white)
                     .font(.system(size: 18, weight: .semibold))
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text("Muse 2")
-                    .font(Resona.Typography.headline)
-                    .foregroundStyle(Resona.Palette.ink)
+                HStack(spacing: 6) {
+                    Text("Muse 2")
+                        .font(Resona.Typography.headline)
+                        .foregroundStyle(Resona.Palette.ink)
+                    if batteryLow {
+                        Text("LOW")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(0.6)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Capsule().fill(Resona.Palette.coral.opacity(0.85)))
+                            .foregroundStyle(.white)
+                    }
+                }
                 HStack(spacing: 4) {
                     Circle()
                         .fill(connected ? Resona.Palette.focus : Resona.Palette.coral)
@@ -1052,13 +1235,20 @@ struct MuseDevicePill: View {
                     if let p = batteryPct {
                         Text(String(format: "· %.0f%%", p))
                             .font(Resona.Typography.caption.monospacedDigit())
-                            .foregroundStyle(Resona.Palette.inkFaint)
+                            .foregroundStyle(batteryLow ? Resona.Palette.coral : Resona.Palette.inkFaint)
                     }
+                }
+                if batteryLow {
+                    Text("BLE drops below ~15%")
+                        .font(.caption2)
+                        .foregroundStyle(Resona.Palette.coral)
                 }
             }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .resonaCard(tint: Resona.Palette.lavender.opacity(0.20))
+        .resonaCard(tint: batteryLow
+                        ? Resona.Palette.coral.opacity(0.18)
+                        : Resona.Palette.lavender.opacity(0.20))
     }
 }

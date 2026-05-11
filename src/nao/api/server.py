@@ -122,13 +122,22 @@ def health() -> dict[str, Any]:
 @app.get("/state")
 def state() -> dict[str, Any]:
     frame = runtime.latest_frame()
+    health = runtime.stream_health()
     if frame is None:
-        return {"status": "warmup"}
+        return {"status": "warmup", "stream_health": health}
     cal = Calibration.load()
     d = frame.model_dump()
     d["label"] = label_frame(frame, cal)
     d["status"] = "live"
+    d["stream_health"] = health
     return d
+
+
+@app.get("/ble/health")
+def ble_health() -> dict[str, Any]:
+    """Standalone endpoint for the UI to poll diagnostic state without
+    pulling the full frame payload. Same shape as /state.stream_health."""
+    return runtime.stream_health()
 
 
 @app.get("/history")

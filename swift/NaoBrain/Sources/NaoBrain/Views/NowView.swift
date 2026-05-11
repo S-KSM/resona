@@ -24,7 +24,11 @@ struct NowView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                if isStuck { stuckBanner }
+                if let h = client.streamHealth, h.unstable {
+                    BLEUnstableBanner(recentDrops: h.recentDrops)
+                } else if isStuck {
+                    stuckBanner
+                }
 
                 HStack {
                     SessionStrip()

@@ -86,6 +86,22 @@ def get_recorder() -> SessionRecorder:
     return _recorder
 
 
+def stream_health() -> dict:
+    """Return a small diagnostic dict for the UI. Live-BLE sources surface
+    `unstable=True` when the headband has dropped 3+ times in 30 s;
+    synthetic and other sources are always stable."""
+    if _pipeline is None:
+        return {"unstable": False, "recent_drops": 0, "last_drop_age_s": None}
+    src = getattr(_pipeline, "source", None)
+    fn = getattr(src, "stream_health", None)
+    if callable(fn):
+        try:
+            return fn()
+        except Exception:  # noqa: BLE001
+            pass
+    return {"unstable": False, "recent_drops": 0, "last_drop_age_s": None}
+
+
 def restart_pipeline() -> Pipeline:
     """Tear down + rebuild. Used after source change in /config or /pipeline/restart.
 

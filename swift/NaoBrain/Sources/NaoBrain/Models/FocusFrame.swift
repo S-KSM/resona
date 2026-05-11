@@ -60,3 +60,18 @@ struct BatteryStatus: Codable, Equatable {
         case stale
     }
 }
+
+/// BLE link health snapshot — emitted by the sidecar when the headband
+/// keeps dropping. UI uses this to swap the generic "Signal stuck" copy
+/// for an actionable recovery banner.
+struct StreamHealth: Codable, Equatable {
+    let unstable: Bool
+    let recentDrops: Int
+    let lastDropAgeS: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case unstable
+        case recentDrops = "recent_drops"
+        case lastDropAgeS = "last_drop_age_s"
+    }
+}
